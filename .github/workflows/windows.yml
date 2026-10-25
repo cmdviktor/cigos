@@ -1,0 +1,34 @@
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt (MinGW)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.8.*"
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          modules: "qtmultimedia"
+          tools: "tools_mingw1310"
+          cache: true
+      - name: Put MinGW and Ninja on PATH
+        shell: pwsh
+        run: |
+          $gpp = Get-ChildItem $env:IQTA_TOOLS -Recurse -Filter g++.exe | Select-Object -First 1
+          if (-not $gpp) { throw "Qt's MinGW compiler was not found under $env:IQTA_TOOLS" }
+          $gpp.DirectoryName | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { choco install ninja --no-progress -y }
+      - name: Build and package
+        shell: pwsh
+        run: ./scripts/package-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sung-Windows
+          path: dist/Sung-Windows.zip
